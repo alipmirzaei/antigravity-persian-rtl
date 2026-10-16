@@ -88,14 +88,20 @@ powershell -ExecutionPolicy Bypass -File .\windows\install.ps1
 
 ## خط فرمان و دستورات کنترلی (CLI Commands)
 
-پس از نصب، دستور `fix-antigravity-rtl` در ترمینال شما در دسترس است:
+پس از نصب، دستور `fix-antigravity-rtl` به عنوان یک ابزار جامع در ترمینال شما در دسترس است و در هر لحظه می‌توانید آن را روشن، خاموش یا بررسی وضعیت کنید:
 
 ```bash
-# بررسی وضعیت سرویس، پورت فعال و پنجره‌های متصل Antigravity
-fix-antigravity-rtl status
+# روشن کردن سرویس و فعال‌سازی فوری استایل‌ها
+fix-antigravity-rtl on
 
-# اعمال فوری و دستی استایل‌ها بر روی پنجره‌های فعال
-fix-antigravity-rtl
+# خاموش کردن سرویس و بازگرداندن آنی به حالت پیش‌فرض Antigravity
+fix-antigravity-rtl off
+
+# تغییر وضعیت بین روشن و خاموش (کلید Toggle)
+fix-antigravity-rtl toggle
+
+# بررسی وضعیت اتصال به Antigravity، پورت و سرویس پس‌زمینه
+fix-antigravity-rtl status
 ```
 
 **نمونه خروجی وضعیت (`status`):**
@@ -108,7 +114,13 @@ fix-antigravity-rtl
 [✓] Antigravity is running (Active CDP Port: 34457)
 [✓] Open UI Windows/Tabs: 1
     1. "Fixing Persian English Text Direction - antigravity-persian-rtl - Antigravity"
-[i] systemd Service Status: ● ACTIVE (Daemon running)
+[i] Service Status: ● ON / ACTIVE (Daemon running)
+----------------------------------------------------
+Quick commands:
+  fix-antigravity-rtl on      -> Turn ON & enable styles
+  fix-antigravity-rtl off     -> Turn OFF & revert to default
+  fix-antigravity-rtl toggle  -> Toggle ON / OFF
+  fix-antigravity-rtl status  -> View live status
 ----------------------------------------------------
 ```
 

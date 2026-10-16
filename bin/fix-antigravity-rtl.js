@@ -228,6 +228,107 @@ async function checkAndInject(silent = false) {
   }
 }
 
+async function removeStylesFromWindows() {
+  if (!fs.existsSync(PORT_FILE)) return;
+  try {
+    const lines = fs.readFileSync(PORT_FILE, 'utf8').trim().split('\n');
+    const port = lines[0]?.trim();
+    if (!port) return;
+
+    const pages = await fetchJson(`http://127.0.0.1:${port}/json/list`);
+    if (!Array.isArray(pages)) return;
+
+    for (const page of pages) {
+      if (page.type === 'page' && page.webSocketDebuggerUrl) {
+        await new Promise((resolve) => {
+          try {
+            const ws = new WebSocket(page.webSocketDebuggerUrl);
+            ws.onopen = () => {
+              ws.send(JSON.stringify({
+                id: 999,
+                method: 'Runtime.evaluate',
+                params: { expression: '(() => { const s = document.getElementById("antigravity-persian-rtl"); if (s) s.remove(); })()' }
+              }));
+              setTimeout(() => {
+                ws.close();
+                resolve(true);
+              }, 200);
+            };
+            ws.onerror = () => resolve(false);
+            ws.onclose = () => resolve(false);
+          } catch (_) {
+            resolve(false);
+          }
+        });
+      }
+    }
+  } catch (_) {}
+}
+
+function isServiceActive() {
+  if (process.platform === 'linux') {
+    try {
+      const out = execSync('systemctl --user is-active antigravity-rtl.service 2>/dev/null || true').toString().trim();
+      return out === 'active';
+    } catch (_) {
+      return false;
+    }
+  } else if (process.platform === 'darwin') {
+    try {
+      const out = execSync('launchctl list | grep com.antigravity.persian || true').toString().trim();
+      return out.length > 0;
+    } catch (_) {
+      return false;
+    }
+  }
+  return false;
+}
+
+async function turnOff() {
+  console.log('[*] Stopping Antigravity Persian RTL background service...');
+  if (process.platform === 'linux') {
+    try {
+      execSync('systemctl --user stop antigravity-rtl.service 2>/dev/null || true');
+    } catch (_) {}
+  } else if (process.platform === 'darwin') {
+    try {
+      const plist = path.join(os.homedir(), 'Library', 'LaunchAgents', 'com.antigravity.persian.plist');
+      execSync(`launchctl unload "${plist}" 2>/dev/null || true`);
+    } catch (_) {}
+  }
+
+  console.log('[*] Removing RTL styles from active Antigravity windows...');
+  await removeStylesFromWindows();
+  console.log('[✓] Antigravity Persian RTL is now OFF. Reverted to default styles.');
+}
+
+async function turnOn() {
+  console.log('[*] Starting Antigravity Persian RTL background service...');
+  if (process.platform === 'linux') {
+    try {
+      execSync('systemctl --user start antigravity-rtl.service 2>/dev/null || true');
+    } catch (_) {}
+  } else if (process.platform === 'darwin') {
+    try {
+      const plist = path.join(os.homedir(), 'Library', 'LaunchAgents', 'com.antigravity.persian.plist');
+      execSync(`launchctl load -w "${plist}" 2>/dev/null || true`);
+    } catch (_) {}
+  }
+
+  console.log('[*] Injecting Vazirmatn & RTL styles into active windows...');
+  const count = await checkAndInject(false);
+  await wait(1000);
+  console.log(`[✓] Antigravity Persian RTL is now ON. Styles active on ${count} page(s).`);
+}
+
+async function toggle() {
+  if (isServiceActive()) {
+    await turnOff();
+  } else {
+    await turnOn();
+  }
+}
+
 async function showStatus() {
   console.log('----------------------------------------------------');
   console.log('  Antigravity Persian RTL & Vazirmatn Status');
@@ -255,18 +356,15 @@ async function showStatus() {
     }
   }
 
-  // Check background service on Linux
-  if (process.platform === 'linux') {
-    try {
-      const systemdOut = execSync('systemctl --user is-active antigravity-rtl.service 2>/dev/null || true').toString().trim();
-      console.log(`[i] systemd Service Status: ${systemdOut === 'active' ? '● ACTIVE (Daemon running)' : '○ INACTIVE'}`);
-    } catch (_) {}
-  } else if (process.platform === 'darwin') {
-    try {
-      const launchOut = execSync('launchctl list | grep com.antigravity.persian || true').toString().trim();
-      console.log(`[i] macOS LaunchAgent: ${launchOut ? '● ACTIVE' : '○ INACTIVE'}`);
-    } catch (_) {}
-  }
+  // Check background service on Linux / macOS
+  const active = isServiceActive();
+  console.log(`[i] Service Status: ${active ? '● ON / ACTIVE (Daemon running)' : '○ OFF / INACTIVE'}`);
+  console.log('----------------------------------------------------');
+  console.log('Quick commands:');
+  console.log('  fix-antigravity-rtl on      -> Turn ON & enable styles');
+  console.log('  fix-antigravity-rtl off     -> Turn OFF & revert to default');
+  console.log('  fix-antigravity-rtl toggle  -> Toggle ON / OFF');
+  console.log('  fix-antigravity-rtl status  -> View live status');
   console.log('----------------------------------------------------');
 }
 
@@ -275,6 +373,21 @@ async function main() {
 
   if (args.includes('status')) {
     await showStatus();
+    process.exit(0);
+  }
+
+  if (args.includes('off') || args.includes('stop') || args.includes('disable')) {
+    await turnOff();
+    process.exit(0);
+  }
+
+  if (args.includes('on') || args.includes('start') || args.includes('enable')) {
+    await turnOn();
+    process.exit(0);
+  }
+
+  if (args.includes('toggle')) {
+    await toggle();
     process.exit(0);
   }
 
@@ -302,3 +415,4 @@ main().catch(err => {
   console.error('[✗] Error:', err.message);
   process.exit(1);
 });
+
