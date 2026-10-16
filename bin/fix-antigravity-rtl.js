@@ -127,34 +127,70 @@ const INJECT_SCRIPT = `
       }
     }
 
+    function isRtlString(str) {
+      if (!str) return false;
+      const rtlChars = str.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g);
+      if (!rtlChars) return false;
+      const ltrChars = str.match(/[a-zA-Z]/g);
+      if (!ltrChars) return true;
+      const rtlRatio = rtlChars.length / (rtlChars.length + ltrChars.length);
+      return rtlRatio >= 0.35 || rtlChars.length >= 3;
+    }
+
+    function updateElementDir(el) {
+      if (!el || (el.closest && el.closest('.monaco-editor, .xterm, .terminal, .katex'))) return;
+      const text = el.isContentEditable ? el.innerText : (el.value || el.textContent);
+      if (!text || !text.trim()) {
+        if (el.hasAttribute('data-ag-rtl')) {
+          el.removeAttribute('dir');
+          el.removeAttribute('data-ag-rtl');
+          el.style.textAlign = '';
+        }
+        return;
+      }
+      if (isRtlString(text)) {
+        el.setAttribute('dir', 'rtl');
+        el.setAttribute('data-ag-rtl', '1');
+        el.style.textAlign = 'right';
+      } else {
+        if (el.hasAttribute('data-ag-rtl')) {
+          el.setAttribute('dir', 'ltr');
+          el.style.textAlign = 'left';
+        }
+      }
+    }
+
     function applyAutoDir(root) {
       if (!root || !root.querySelectorAll) return;
-      const targets = root.querySelectorAll ? root.querySelectorAll('p, li, h1, h2, h3, h4, [class*="message"], textarea, input') : [];
+      if (root.matches && (root.isContentEditable || root.matches('p, li, h1, h2, h3, h4, [class*="message"], textarea, input'))) {
+        updateElementDir(root);
+      }
+      const targets = root.querySelectorAll('p, li, h1, h2, h3, h4, [class*="message"], [contenteditable="true"], textarea, input');
       for (let i = 0; i < targets.length; i++) {
-        const el = targets[i];
-        if (el.closest && el.closest('.monaco-editor, .xterm, .terminal, .katex')) continue;
-        if (!el.hasAttribute('dir')) {
-          el.setAttribute('dir', 'auto');
-          el.setAttribute('data-ag-rtl', '1');
-        }
+        updateElementDir(targets[i]);
       }
     }
 
     applyStyles();
     if (document.body) applyAutoDir(document.body);
 
+    // Dynamic input & keyup listener for prompt field & textareas
+    if (!window._antigravityInputListener) {
+      window._antigravityInputListener = (e) => {
+        const target = e.target;
+        if (target && (target.isContentEditable || target.tagName === 'TEXTAREA' || target.tagName === 'INPUT')) {
+          updateElementDir(target);
+        }
+      };
+      document.addEventListener('input', window._antigravityInputListener, true);
+      document.addEventListener('keyup', window._antigravityInputListener, true);
+    }
+
     if (!window._antigravityPersianObserver && document.body) {
       window._antigravityPersianObserver = new MutationObserver((mutations) => {
         for (const m of mutations) {
           for (const node of m.addedNodes) {
             if (node.nodeType === 1) {
-              if (node.closest && node.closest('.monaco-editor, .xterm, .terminal, .katex')) continue;
-              if (node.matches && node.matches('p, li, h1, h2, h3, h4, [class*="message"], textarea, input')) {
-                if (!node.hasAttribute('dir')) {
-                  node.setAttribute('dir', 'auto');
-                  node.setAttribute('data-ag-rtl', '1');
-                }
-              }
               applyAutoDir(node);
             }
           }
@@ -289,9 +325,15 @@ async function removeStylesFromWindows() {
           window._antigravityPersianObserver.disconnect();
           window._antigravityPersianObserver = null;
         }
+        if (window._antigravityInputListener) {
+          document.removeEventListener('input', window._antigravityInputListener, true);
+          document.removeEventListener('keyup', window._antigravityInputListener, true);
+          window._antigravityInputListener = null;
+        }
         document.querySelectorAll('[data-ag-rtl="1"]').forEach(el => {
           el.removeAttribute('dir');
           el.removeAttribute('data-ag-rtl');
+          el.style.textAlign = '';
         });
       })()
     `;
