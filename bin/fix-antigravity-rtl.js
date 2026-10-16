@@ -98,10 +98,14 @@ const CSS_STYLES = `
     unicode-bidi: plaintext !important;
   }
 
-  /* 8. Explicit Right-to-Left Containers */
-  [dir="rtl"], .rtl {
+  /* 8. Explicit and Automatic Right-to-Left Containers */
+  [dir="rtl"], .rtl, [dir="auto"]:dir(rtl) {
     direction: rtl !important;
     text-align: right !important;
+  }
+  [dir="auto"]:dir(ltr) {
+    direction: ltr !important;
+    text-align: left !important;
   }
 `;
 
@@ -122,9 +126,48 @@ const INJECT_SCRIPT = `
         s.textContent = ${JSON.stringify(CSS_STYLES)};
       }
     }
+
+    function applyAutoDir(root) {
+      if (!root || !root.querySelectorAll) return;
+      const targets = root.querySelectorAll ? root.querySelectorAll('p, li, h1, h2, h3, h4, [class*="message"], textarea, input') : [];
+      for (let i = 0; i < targets.length; i++) {
+        const el = targets[i];
+        if (el.closest && el.closest('.monaco-editor, .xterm, .terminal, .katex')) continue;
+        if (!el.hasAttribute('dir')) {
+          el.setAttribute('dir', 'auto');
+          el.setAttribute('data-ag-rtl', '1');
+        }
+      }
+    }
+
     applyStyles();
+    if (document.body) applyAutoDir(document.body);
+
+    if (!window._antigravityPersianObserver && document.body) {
+      window._antigravityPersianObserver = new MutationObserver((mutations) => {
+        for (const m of mutations) {
+          for (const node of m.addedNodes) {
+            if (node.nodeType === 1) {
+              if (node.closest && node.closest('.monaco-editor, .xterm, .terminal, .katex')) continue;
+              if (node.matches && node.matches('p, li, h1, h2, h3, h4, [class*="message"], textarea, input')) {
+                if (!node.hasAttribute('dir')) {
+                  node.setAttribute('dir', 'auto');
+                  node.setAttribute('data-ag-rtl', '1');
+                }
+              }
+              applyAutoDir(node);
+            }
+          }
+        }
+      });
+      window._antigravityPersianObserver.observe(document.body, { childList: true, subtree: true });
+    }
+
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", applyStyles);
+      document.addEventListener("DOMContentLoaded", () => {
+        applyStyles();
+        if (document.body) applyAutoDir(document.body);
+      });
     }
   })()
 `;
@@ -238,6 +281,21 @@ async function removeStylesFromWindows() {
     const pages = await fetchJson(`http://127.0.0.1:${port}/json/list`);
     if (!Array.isArray(pages)) return;
 
+    const CLEANUP_EXPR = `
+      (() => {
+        const s = document.getElementById("antigravity-persian-rtl");
+        if (s) s.remove();
+        if (window._antigravityPersianObserver) {
+          window._antigravityPersianObserver.disconnect();
+          window._antigravityPersianObserver = null;
+        }
+        document.querySelectorAll('[data-ag-rtl="1"]').forEach(el => {
+          el.removeAttribute('dir');
+          el.removeAttribute('data-ag-rtl');
+        });
+      })()
+    `;
+
     for (const page of pages) {
       if (page.type === 'page' && page.webSocketDebuggerUrl) {
         await new Promise((resolve) => {
@@ -247,7 +305,7 @@ async function removeStylesFromWindows() {
               ws.send(JSON.stringify({
                 id: 999,
                 method: 'Runtime.evaluate',
-                params: { expression: '(() => { const s = document.getElementById("antigravity-persian-rtl"); if (s) s.remove(); })()' }
+                params: { expression: CLEANUP_EXPR }
               }));
               setTimeout(() => {
                 ws.close();
