@@ -85,15 +85,14 @@ else
     echo "[✓] قوانین نگارش فارسی از قبل در GEMINI.md وجود دارد."
 fi
 
-# 6. Setup Systemd User Service & Path for Auto-Execution
+# 6. Setup Systemd User Service Daemon
 if command -v systemctl >/dev/null 2>&1 && systemctl --user status >/dev/null 2>&1; then
-    echo "[*] فعال‌سازی سرویس خودکار systemd..."
+    echo "[*] فعال‌سازی سرویس دائمی systemd..."
     mkdir -p "$SYSTEMD_USER_DIR"
-    cp "$SCRIPT_DIR/systemd/antigravity-rtl.path" "$SYSTEMD_USER_DIR/"
     cp "$SCRIPT_DIR/systemd/antigravity-rtl.service" "$SYSTEMD_USER_DIR/"
     systemctl --user daemon-reload
-    systemctl --user enable --now antigravity-rtl.path
-    echo "[✓] پایشگر خودکار با موفقیت فعال شد. از این پس با هر بار اجرای Antigravity استایل‌ها خودکار اعمال می‌شوند."
+    systemctl --user enable --now antigravity-rtl.service
+    echo "[✓] سرویس پس‌زمینه با موفقیت فعال شد. از این پس استایل‌ها به صورت دائمی روی تمام پنجره‌ها و تب‌های Antigravity اعمال و حفظ می‌شوند."
 fi
 
 # 7. Apply immediately if Antigravity is currently running

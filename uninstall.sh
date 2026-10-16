@@ -8,11 +8,12 @@ echo "--------------------------------------------------------"
 
 # 1. Stop and remove systemd units
 if command -v systemctl >/dev/null 2>&1; then
+    systemctl --user disable --now antigravity-rtl.service 2>/dev/null || true
     systemctl --user disable --now antigravity-rtl.path 2>/dev/null || true
     rm -f "$HOME/.config/systemd/user/antigravity-rtl.path"
     rm -f "$HOME/.config/systemd/user/antigravity-rtl.service"
     systemctl --user daemon-reload 2>/dev/null || true
-    echo "[✓] سرویس systemd حذف شد."
+    echo "[✓] سرویس systemd متوقف و حذف شد."
 fi
 
 # 2. Remove binary

@@ -3,7 +3,7 @@
 /**
  * Antigravity Persian & RTL Enhancer
  * Connects to Antigravity's active Chromium/Electron DevTools instance
- * and injects native RTL and Vazirmatn typography styles.
+ * and injects native RTL and Vazirmatn typography styles persistently.
  */
 
 const fs = require('fs');
@@ -14,27 +14,58 @@ const os = require('os');
 const PORT_FILE = path.join(os.homedir(), '.config', 'Antigravity', 'DevToolsActivePort');
 
 const CSS_STYLES = `
-  /* Vazirmatn Font & RTL typography for Antigravity */
+  /* Vazirmatn Font & Universal Typography */
   @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700&display=swap');
 
-  :lang(fa), [dir="rtl"], .rtl {
-    font-family: "Vazirmatn", system-ui, -apple-system, sans-serif !important;
-    direction: rtl !important;
-    text-align: right !important;
+  /* Apply Vazirmatn to all UI text elements and chat bubbles */
+  body, p, li, button, input, textarea, .whitespace-pre-wrap,
+  [class*="message"], [class*="markdown"], [class*="prose"],
+  [class*="conversation"], [class*="sidebar"] {
+    font-family: "Vazirmatn", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   }
 
   /* XeLaTeX-style BiDi isolation for inline code & pre blocks */
-  [dir="rtl"] code, [dir="rtl"] pre, code[dir="ltr"] {
+  code, pre, kbd, samp, [class*="code-block"] {
+    font-family: "Ubuntu Sans Mono", "Ubuntu Mono", "Fira Code", monospace !important;
     direction: ltr !important;
     text-align: left !important;
     unicode-bidi: isolate !important;
-    display: inline-block;
   }
 
-  /* Automatic bidirectional paragraph resolution (like XeLaTeX / UBA rule P2) */
+  /* Automatic bidirectional paragraph resolution (UBA rule P2) */
   p, li, .whitespace-pre-wrap, [class*="message-content"] {
     unicode-bidi: plaintext !important;
   }
+
+  /* Explicit Right-to-Left containers */
+  [dir="rtl"], .rtl {
+    direction: rtl !important;
+    text-align: right !important;
+  }
+`;
+
+const INJECT_SCRIPT = `
+  (() => {
+    function applyStyles() {
+      let s = document.getElementById("antigravity-persian-rtl");
+      if (!s) {
+        s = document.createElement("style");
+        s.id = "antigravity-persian-rtl";
+        if (document.head) {
+          document.head.appendChild(s);
+        } else if (document.documentElement) {
+          document.documentElement.appendChild(s);
+        }
+      }
+      if (s) {
+        s.textContent = ${JSON.stringify(CSS_STYLES)};
+      }
+    }
+    applyStyles();
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", applyStyles);
+    }
+  })()
 `;
 
 function wait(ms) {
@@ -57,99 +88,97 @@ function fetchJson(url) {
   });
 }
 
-async function injectIntoPage(pageUrl) {
-  return new Promise((resolve) => {
-    const ws = new WebSocket(pageUrl);
-    const timeout = setTimeout(() => {
-      try { ws.close(); } catch (_) {}
-      resolve(false);
-    }, 4000);
+const activeSockets = new Map();
+
+async function attachToPage(page) {
+  if (activeSockets.has(page.id)) return;
+
+  try {
+    const ws = new WebSocket(page.webSocketDebuggerUrl);
+    activeSockets.set(page.id, ws);
+
+    let msgId = 1;
+    function send(method, params = {}) {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({ id: msgId++, method, params }));
+    }
 
     ws.onopen = () => {
-      ws.send(JSON.stringify({
-        id: 1,
-        method: 'Runtime.evaluate',
-        params: {
-          expression: `(() => {
-            let style = document.getElementById("antigravity-persian-rtl");
-            if (!style) {
-              style = document.createElement("style");
-              style.id = "antigravity-persian-rtl";
-              document.head.appendChild(style);
-            }
-            style.textContent = ${JSON.stringify(CSS_STYLES)};
-            return document.title || "Antigravity Window";
-          })()`,
-          returnByValue: true
-        }
-      }));
+      // 1. Evaluate immediately in the active document
+      send('Runtime.evaluate', { expression: INJECT_SCRIPT });
+
+      // 2. Ensure every subsequent navigation or reload automatically gets the script
+      send('Page.enable');
+      send('Page.addScriptToEvaluateOnNewDocument', { source: INJECT_SCRIPT });
+
+      console.log(`[✓] Injected Vazirmatn & RTL styles into: "${page.title || 'Window'}"`);
     };
 
     ws.onmessage = (event) => {
-      clearTimeout(timeout);
       try {
         const msg = JSON.parse(event.data);
-        if (msg.id === 1) {
-          const title = msg.result?.result?.value || 'Window';
-          console.log(`[✓] Successfully injected Persian & RTL style into: "${title}"`);
-          ws.close();
-          resolve(true);
+        // Re-inject if frame navigates or DOM loads
+        if (msg.method === 'Page.frameNavigated' || msg.method === 'Page.loadEventFired') {
+          send('Runtime.evaluate', { expression: INJECT_SCRIPT });
         }
-      } catch (e) {
-        resolve(false);
-      }
+      } catch (_) {}
+    };
+
+    ws.onclose = () => {
+      activeSockets.delete(page.id);
     };
 
     ws.onerror = () => {
-      clearTimeout(timeout);
-      resolve(false);
+      activeSockets.delete(page.id);
     };
-  });
+  } catch (err) {
+    activeSockets.delete(page.id);
+  }
+}
+
+async function checkAndInject() {
+  if (!fs.existsSync(PORT_FILE)) return;
+
+  try {
+    const lines = fs.readFileSync(PORT_FILE, 'utf8').trim().split('\n');
+    const port = lines[0]?.trim();
+    if (!port) return;
+
+    const pages = await fetchJson(`http://127.0.0.1:${port}/json/list`);
+    if (!Array.isArray(pages)) return;
+
+    for (const page of pages) {
+      if (page.type === 'page' && page.webSocketDebuggerUrl) {
+        await attachToPage(page);
+      }
+    }
+  } catch (_) {}
 }
 
 async function main() {
-  if (!fs.existsSync(PORT_FILE)) {
-    console.log('[!] Antigravity does not appear to be running (DevToolsActivePort not found).');
+  const isDaemon = process.argv.includes('--daemon') || process.argv.includes('-d');
+
+  if (isDaemon) {
+    console.log('[*] Antigravity Persian RTL Daemon started. Watching for Antigravity windows...');
+    while (true) {
+      await checkAndInject();
+      await wait(2000);
+    }
+  } else {
+    // One-shot execution
+    if (!fs.existsSync(PORT_FILE)) {
+      console.log('[!] Antigravity is not currently running.');
+      process.exit(0);
+    }
+    await checkAndInject();
+    // Allow brief time for sockets to connect & send
+    await wait(1500);
+    console.log('[✓] Styles applied.');
     process.exit(0);
-  }
-
-  const lines = fs.readFileSync(PORT_FILE, 'utf8').trim().split('\n');
-  const port = lines[0]?.trim();
-
-  if (!port) {
-    console.error('[✗] Failed to read DevTools port.');
-    process.exit(1);
-  }
-
-  let pages = [];
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      pages = await fetchJson(`http://127.0.0.1:${port}/json/list`);
-      break;
-    } catch (e) {
-      if (attempt < 3) await wait(1000);
-    }
-  }
-
-  if (!pages || !pages.length) {
-    console.log('[!] No active UI pages found to inject.');
-    return;
-  }
-
-  let injectedCount = 0;
-  for (const page of pages) {
-    if (page.type === 'page' && page.webSocketDebuggerUrl) {
-      const ok = await injectIntoPage(page.webSocketDebuggerUrl);
-      if (ok) injectedCount++;
-    }
-  }
-
-  if (injectedCount > 0) {
-    console.log(`[✓] Persian RTL & Vazirmatn active on ${injectedCount} Antigravity page(s).`);
   }
 }
 
 main().catch(err => {
-  console.error('[✗] Error executing injector:', err.message);
+  console.error('[✗] Error:', err.message);
   process.exit(1);
 });
