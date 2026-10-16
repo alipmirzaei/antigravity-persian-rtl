@@ -1,0 +1,12 @@
+[Unit]
+Description=Inject Persian RTL and Vazirmatn Styles into Antigravity
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/sleep 2
+ExecStart=%h/.local/bin/fix-antigravity-rtl
+Restart=no
+
+[Install]
+WantedBy=default.target

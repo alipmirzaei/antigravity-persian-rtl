@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch for Antigravity DevTools Port
+PartOf=graphical-session.target
+
+[Path]
+PathModified=%h/.config/Antigravity/DevToolsActivePort
+Unit=antigravity-rtl.service
+
+[Install]
+WantedBy=graphical-session.target default.target
