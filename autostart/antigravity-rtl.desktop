@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Antigravity Persian RTL Daemon
+Comment=Background daemon for Antigravity Persian typography and RTL support
+Exec=sh -c "$HOME/.local/bin/fix-antigravity-rtl --daemon"
+Icon=preferences-desktop-font
+Terminal=false
+Categories=Utility;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true
