@@ -78,11 +78,41 @@ const CSS_STYLES = `
     font-family: "Ubuntu Sans Mono", "Ubuntu Mono", "Consolas", "Fira Code", monospace !important;
   }
 
-  /* 5. SAFETY SHIELD: KaTeX Math Protection */
-  .katex, .katex *, .katex-display, .katex-display * {
+  /* 5. SAFETY SHIELD: KaTeX Mathematical Protection (Strict LTR BiDi Isolation & Centered Display) */
+  .katex {
     direction: ltr !important;
+    display: inline-block !important;
+    unicode-bidi: isolate !important;
     text-align: left !important;
-    unicode-bidi: normal !important;
+    font-family: KaTeX_Main, KaTeX_Math, "Times New Roman", serif !important;
+    white-space: nowrap !important;
+  }
+
+  .katex * {
+    direction: ltr !important;
+    unicode-bidi: isolate !important;
+  }
+
+  .katex-display {
+    display: block !important;
+    margin: 1.2em 0 !important;
+    text-align: center !important;
+    direction: ltr !important;
+    unicode-bidi: isolate !important;
+  }
+
+  .katex-display > .katex {
+    display: block !important;
+    text-align: center !important;
+    direction: ltr !important;
+    unicode-bidi: isolate !important;
+    white-space: normal !important;
+  }
+
+  .katex-display > .katex > .katex-html {
+    display: block !important;
+    position: relative !important;
+    text-align: center !important;
   }
 
   /* 6. Inline Code & Pre-formatted Snippet Isolation */
