@@ -11,7 +11,7 @@ echo "  نصب‌کننده‌ی جامع پشتیبانی از زبان فار�
 echo "  Antigravity Persian RTL & Vazirmatn Universal Installer"
 echo "--------------------------------------------------------"
 
-REPO_URL="https://github.com/aliamani/antigravity-persian-rtl.git"
+REPO_URL="https://github.com/alipmirzaei/antigravity-persian-rtl.git"
 INSTALL_TARGET_DIR="$HOME/.local/share/antigravity-persian-rtl"
 
 # 0. Pipe / Remote Execution Handling (curl ... | bash)

@@ -1,110 +1,123 @@
 # Antigravity Persian RTL & Vazirmatn Suite
-> راه‌حل جامع، چندسکویی (Cross-Platform) و با تأخیر صفر (Zero-Latency) برای تایپوگرافی زبان فارسی، قلم وزیرمتن و رفع تداخل متون فارسی و انگلیسی در Google Antigravity مشابه با استاندارد XeLaTeX
+
+> A zero-latency, cross-platform bidirectional (BiDi) text and typography engine for **Google Antigravity**, featuring native **Vazirmatn** font integration and XeLaTeX-grade mathematical formula isolation.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Platforms](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-brightgreen.svg)](#)
+[![Platforms](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-brightgreen.svg)](#installation)
 [![Font](https://img.shields.io/badge/Font-Vazirmatn-teal.svg)](https://github.com/rastikerdar/vazirmatn)
-[![Latency](https://img.shields.io/badge/Latency-0ms%20(Offline%20First)-orange.svg)](#)
-[![Safety](https://img.shields.io/badge/Safety-Monaco%20%26%20Terminal%20Protected-success.svg)](#)
-
-<div dir="rtl">
-
-## چرا این ابزار ساخته شد؟ (صورت مسئله)
-
-محیط برنامه و چت دستیار هوش مصنوعی **Google Antigravity** به صورت پیش‌فرض با جهت چپ‌به‌راست (`direction: ltr`) و بدون فونت فارسی بهینه‌سازی‌شده رندر می‌شود. هنگامی که به زبان فارسی گفت‌وگو می‌کنید، مشکلات زیر تجربه کاربری را مختل می‌سازد:
-
-1. **وارونگی و پرش علائم نگارشی**: نقطه (`.`‌)، دونقطه (`:`)، پرانتزها و علامت سوال (`؟`) به جای قرار گرفتن در انتهای جمله، به ابتدای خط یا طرف مخالف می‌پرند.
-2. **به‌هم‌ریختگی عبارات ترکیبی فارسی و انگلیسی**: قرار گرفتن اسامی پکیج‌ها، نام توابع یا اصطلاحات انگلیسی میان عبارات فارسی، کلمات را جلو و عقب می‌کند.
-3. **فونت ناهماهنگ و درشت سیستمی**: سیستم‌عامل‌ها برای متن‌های فارسی به سراغ فونت‌های ناهماهنگ با وب مدرن (مانند DejaVu یا Arial) می‌روند که خوانایی را به شدت کاهش می‌دهد.
-4. **تداخل با ادیتور و ترمینال در روش‌های سطحی**: تغییر جهت عمومی صفحه باعث آسیب به محیط کدنویسی (Monaco)، خراب شدن ایندنت‌ها، جابه‌جا شدن کرسر و وارونه شدن ترمینال لینوکس می‌شود.
-
-این پروژه یک راه‌حل چندلایه و مهندسی‌شده ارائه می‌دهد که خروجی فارسی را با قلم محبوب و چشم‌نواز **وزیرمتن (Vazirmatn)** و دقتی در تراز **XeLaTeX + xepersian** نمایش می‌دهد، بدون آن‌که کوچک‌ترین آسیبی به ویرایشگر کد یا ترمینال وارد کند.
+[![Latency](https://img.shields.io/badge/Latency-0ms%20(Offline%20First)-orange.svg)](#1-zero-latency--100-offline-first)
+[![Safety](https://img.shields.io/badge/Safety-Monaco%20%26%20Terminal%20Protected-success.svg)](#2-built-in-safety-shields)
+[![Persian Readme](https://img.shields.io/badge/Language-🇮🇷%20فارسی-green.svg)](README_FA.md)
 
 ---
 
-## ویژگی‌ها و معماری پروژه
+## Overview: The Problem
 
-### ۱. بدون تأخیر و آفلاین (Zero-Latency & Offline-First)
-فونت وزیرمتن مستقیماً از حافظه محلی سیستم فراخوانی می‌شود (`local('Vazirmatn')`). هیچ درخواستی به سرورهای Google Fonts یا شبکه ارسال نمی‌شود؛ در نتیجه محدودیت‌های اینترنت یا تحریم‌ها هیچ تأثیری روی لود فونت ندارند و زمان لود ۰ میلی‌ثانیه است.
+Google Antigravity is a cutting-edge developer workspace built on Chromium and Electron. By default, the interface is configured for Left-to-Right (`LTR`) Latin text. When Persian, Arabic, or mixed RTL/LTR content is introduced:
 
-### ۲. سپرهای ایمنی اختصاصی (Safety Shields)
-- **سپر Monaco Editor**: ویرایشگر کد اصلی و نمای Diff با قوانین صریح `direction: ltr !important`، فونت مونو و `unicode-bidi: normal` محافظت شده‌اند. تورفتگی‌ها (Indentation) و مکان‌نمای متن (Cursor) دست‌نخورده باقی می‌مانند.
-- **سپر Terminal / xterm.js**: پنجره‌های خط فرمان و ترمینال‌های ادغام‌شده کاملاً چپ‌به‌راست و با فونت تک‌فاصله باقی می‌مانند.
-- **سپر فرمول‌های ریاضی KaTeX**: تمام نمادها، عملگرها و فرمول‌های ریاضی از راست‌چین شدن محافظت شده و ساختار خود را حفظ می‌کنند.
-- **ایزوله‌سازی کدهای درون‌خطی**: عبارات انگلیسی و تگ‌های `code` در میان جملات فارسی مانند دستور `\lr{...}` در زی‌پرشین ایزوله می‌شوند (`unicode-bidi: isolate`).
+1. **Punctuation Reversal**: Periods (`.`), colons (`:`), question marks (`؟`), and parentheses jump to the opposite side of the line.
+2. **BiDi Text Scrambling**: English technical terms (package names, function calls, framework names) intermixed with Persian sentences cause words to reorder backwards.
+3. **Improper System Fonts**: Operating systems fall back to generic, non-optimized fonts (like `DejaVu Sans` or `Arial`), hurting readability.
+4. **Collateral Damage from Naive RTL Fixes**: Blanket CSS injection or user-scripts break the Monaco code editor (causing misaligned cursors and ruined indentation), invert `xterm.js` terminals, and scramble KaTeX formulas.
 
-### ۳. پایداری در برابر آپدیت‌های Antigravity (Update-Proof)
-این ابزار فایل‌های اجرایی خود برنامه را دستکاری یا Patch نمی‌کند. ارتباط از طریق پروتکل رسمی **Chrome DevTools Protocol (CDP)** و با متد `Page.addScriptToEvaluateOnNewDocument` انجام می‌شود؛ یعنی اسکریپت پیش از رندر هر صفحه در کرومیوم کامپایل می‌شود و با هر ری‌استارت، آپدیت نرم‌افزار، یا باز کردن پنجره و تب جدید، استایل‌ها فوراً و بدون وقفه اعمال می‌شوند.
-
-### ۴. مصرف نامحسوس منابع (Lightweight)
-سرویس پس‌زمینه با Node.js بومی و کمتر از ۱۵ مگابایت رم و ۰٪ بار پردازنده عمل می‌کند.
+**Antigravity Persian RTL Suite** solves this through a non-invasive, 4-layer architecture inspired by the **XeLaTeX / xepersian** typesetting standard.
 
 ---
 
-## روش نصب (Installation)
+## Architectural Highlights
 
-### لینوکس و مک (Linux & macOS)
+### 1. Zero-Latency & 100% Offline-First
+- Font styles resolve strictly via local font mapping (`local('Vazirmatn')`).
+- **No external Google Fonts CDN or network requests** are made at runtime.
+- Immune to regional connectivity restrictions, CDN throttling, and sanctions. Network latency is **0ms**.
 
-سریع‌ترین راه نصب با یک دستور از طریق ترمینال:
+### 2. Built-in Safety Shields
+- **Monaco Code Editor**: Explicitly protected with `direction: ltr !important`, `text-align: left !important`, and monospaced typography. Indentation, line numbers, diff views, and cursor placement remain 100% intact.
+- **Integrated Terminal (`xterm.js`)**: Isolated from bidirectional reordering; CLI tools render in native LTR.
+- **KaTeX Mathematical Isolation**: Inline formulas (`.katex`) are wrapped as atomic `inline-block` objects with strict `unicode-bidi: isolate !important`. Mathematical operators (`=`, `\le`, `*`, `()`, `[]`) never scramble inside RTL paragraphs. Display math (`$$...$$`) is cleanly centered.
+- **Inline Code Isolation**: Code snippets within sentences behave like `\lr{...}` in XeLaTeX (`unicode-bidi: isolate !important`).
+
+### 3. Dynamic Google Closure BiDi Ratio Heuristic
+Standard HTML5 `dir="auto"` inspects only the first character. Prompts starting with an English keyword (e.g. `Docker رو چطور نصب کنم؟`) fail and collapse to LTR.
+- We implement the **Google Closure 40% Ratio Threshold**: If Persian characters exceed 35% of directional characters, the block is classified as RTL.
+- A lightweight, capture-phase event listener dynamically computes direction as you type into Antigravity's chat prompt.
+
+### 4. Resilient & Update-Proof
+- **No binary patching**: We never touch Antigravity's executable files or `app.asar`.
+- Uses the official **Chrome DevTools Protocol (CDP)** via `Page.addScriptToEvaluateOnNewDocument`. The styles compile into Chromium frames before initial paint, surviving restarts, window switches, and application updates.
+
+### 5. Ultra-Lightweight
+- **Zero external npm dependencies**: Built entirely with Node.js standard libraries (`fs`, `path`, `http`, `os`, `child_process`).
+- Background daemon consumes **~14MB RAM** and **0% CPU** in steady state.
+
+---
+
+## Installation
+
+### Linux & macOS
+
+Run the single-line installer in your terminal:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/aliamani/antigravity-persian-rtl/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/alipmirzaei/antigravity-persian-rtl/main/install.sh | bash
 ```
 
-یا از طریق دریافت دستی مخزن:
+Or clone and run manually:
 
 ```bash
-git clone https://github.com/aliamani/antigravity-persian-rtl.git
+git clone https://github.com/alipmirzaei/antigravity-persian-rtl.git
 cd antigravity-persian-rtl
 chmod +x install.sh
 ./install.sh
 ```
 
-**اسکریپت به صورت خودکار:**
-- در لینوکس: قلم وزیرمتن را بررسی و نصب کرده، پیکربندی `fontconfig` را تنظیم می‌کند و دیمن کاربری `systemd` (یا XDG Autostart) را فعال می‌سازد.
-- در مک: قلم وزیرمتن را در `~/Library/Fonts` نصب کرده و سرویس پس‌زمینه `LaunchAgent` را رجیستر می‌کند.
-- ابزار دستور خط فرمان `fix-antigravity-rtl` را در مسیر `~/.local/bin` شما نصب می‌کند.
-- قوانین نگارش حرفه‌ای فارسی را در `~/.gemini/GEMINI.md` تنظیم می‌کند.
+**The installer automatically:**
+- Downloads and installs the Vazirmatn font locally if not already installed.
+- Configures Linux `fontconfig` or macOS `~/Library/Fonts`.
+- Sets up an automatic background daemon via `systemd --user` (Linux) or `LaunchAgent` (macOS).
+- Deploys the `fix-antigravity-rtl` command to `~/.local/bin`.
+- Adds Persian typography prompt guidelines to `~/.gemini/GEMINI.md`.
 
 ---
 
-### ویندوز (Windows PowerShell)
+### Windows (PowerShell)
 
-پنجره‌ی PowerShell را باز کرده و دستور زیر را اجرا کنید:
+Open PowerShell and run:
 
 ```powershell
-irm https://raw.githubusercontent.com/aliamani/antigravity-persian-rtl/main/windows/install.ps1 | iex
+irm https://raw.githubusercontent.com/alipmirzaei/antigravity-persian-rtl/main/windows/install.ps1 | iex
 ```
 
-یا پس از دریافت پروژه:
+Or manually:
+
 ```powershell
+git clone https://github.com/alipmirzaei/antigravity-persian-rtl.git
 cd antigravity-persian-rtl
 powershell -ExecutionPolicy Bypass -File .\windows\install.ps1
 ```
 
-این اسکریپت قلم وزیرمتن را نصب کرده، ابزار اجرایی را در مسیر کاربر قرار داده و سرویس استارتاپ ویندوز را برای اجرای نامرئی در پس‌زمینه پیکربندی می‌کند.
-
 ---
 
-## خط فرمان و دستورات کنترلی (CLI Commands)
+## CLI Management & Controls
 
-پس از نصب، دستور `fix-antigravity-rtl` به عنوان یک ابزار جامع در ترمینال شما در دسترس است و در هر لحظه می‌توانید آن را روشن، خاموش یا بررسی وضعیت کنید:
+Once installed, the `fix-antigravity-rtl` command is available in your shell:
 
 ```bash
-# روشن کردن سرویس و فعال‌سازی فوری استایل‌ها
+# Turn ON and immediately inject styles into open windows
 fix-antigravity-rtl on
 
-# خاموش کردن سرویس و بازگرداندن آنی به حالت پیش‌فرض Antigravity
+# Turn OFF and immediately revert to stock Antigravity styling
 fix-antigravity-rtl off
 
-# تغییر وضعیت بین روشن و خاموش (کلید Toggle)
+# Toggle between ON and OFF
 fix-antigravity-rtl toggle
 
-# بررسی وضعیت اتصال به Antigravity، پورت و سرویس پس‌زمینه
+# Check live daemon status, active port, and connected windows
 fix-antigravity-rtl status
 ```
 
-**نمونه خروجی وضعیت (`status`):**
+### Sample Status Output
+
 ```text
 ----------------------------------------------------
   Antigravity Persian RTL & Vazirmatn Status
@@ -126,38 +139,32 @@ Quick commands:
 
 ---
 
-## روش حذف (Uninstall)
+## Uninstallation
 
-برای بازگرداندن تمام تنظیمات به حالت اولیه:
+To completely remove the suite and restore system defaults:
 
-### لینوکس و مک:
+### Linux & macOS
 ```bash
 ./uninstall.sh
 ```
 
-### ویندوز:
-فایل `antigravity-persian-rtl.vbs` را از پوشه `Startup` ویندوز حذف کنید.
-
-</div>
+### Windows
+Delete `antigravity-persian-rtl.vbs` from your Windows `Startup` folder.
 
 ---
 
-## English Overview
+## Documentation & Community
 
-**Antigravity Persian RTL & Vazirmatn Suite** is a zero-latency, cross-platform enhancement for **Google Antigravity**. It solves bidirectional (BiDi) text mixture problems, fixes misplaced punctuation, and renders Saber Rastikerdar's elegant **Vazirmatn** font natively across all chat and UI panels without breaking the Monaco code editor, terminal, or KaTeX math formulas.
-
-### Highlights
-- **Zero-Latency & Local**: 100% offline-first using local font rendering. No external web requests or CDN dependencies.
-- **Safety Shields**:
-  - `Monaco Editor`: Left-to-right, monospaced indentation and cursor positioning remain fully preserved.
-  - `Terminal (xterm.js)`: Native LTR terminal behavior guaranteed.
-  - `KaTeX`: Mathematical equations remain properly oriented.
-- **CDP Engine**: Injected dynamically via Chrome DevTools Protocol (`Page.addScriptToEvaluateOnNewDocument`), making it completely resilient to window reloads and application updates.
-- **Cross-Platform**: Full support for Linux (`systemd` / XDG Autostart), macOS (`LaunchAgent`), and Windows (PowerShell + Startup daemon).
+- 📖 [Technical Architecture & Module Guide](CODE_DOCUMENTATION.md)
+- 💡 [Design Philosophy & Engineering Constraints](DESIGN_PHILOSOPHY.md)
+- 🤝 [Contributing Guidelines](CONTRIBUTING.md)
+- 🔒 [Security Policy & Vulnerability Disclosure](SECURITY.md)
+- 📜 [Code of Conduct](CODE_OF_CONDUCT.md)
+- 🇮🇷 [Persian Guide (راهنمای فارسی)](README_FA.md)
 
 ---
 
-## لایسنس (License)
+## License & Credits
 
-این پروژه تحت پروانه‌ی [MIT](LICENSE) منتشر شده است.  
-قلم گران‌قدر وزیرمتن اثر جاودان صابر راستی‌کردار (روحش شاد) تحت مجوز Open Font License می‌باشد.
+- This project is open-sourced under the [MIT License](LICENSE).
+- Typography powered by the **Vazirmatn** font by the late Saber Rastikerdar, licensed under the Open Font License (OFL).
