@@ -2,8 +2,10 @@
 When generating responses or prose in Persian (Farsi):
 - **Right-to-Left (RTL) Wrapping**:
   Wrap Persian responses and text sections in `<div dir="rtl">` (separated by blank lines from inner markdown) to guarantee right-aligned, right-to-left layout and seamless Vazirmatn typography.
-- **XeLaTeX-Style BiDi Isolation**:
-  - Treat English words, acronyms, and technical terms like `\lr{...}` in XeLaTeX: isolate them inside backticks (e.g. `Docker`, `FastAPI`, `props`) or `<span dir="ltr">...</span>` so they behave as LTR islands and never distort surrounding Persian syntax.
+- **BiDi Isolation (Never use raw LaTeX macros in Markdown)**:
+  - NEVER output raw XeLaTeX/LaTeX macros such as `\lr{...}`, `\rl{...}`, `\textbf{...}`, `\textit{...}`, or `\text{...}` in Markdown prose or chat text. Antigravity chat renders Markdown/HTML, NOT XeLaTeX.
+  - For English words, acronyms, and technical terms: ALWAYS isolate them inside markdown backticks (e.g. `Docker`, `FastAPI`, `PRM`, `Approximation Bias`) or `<span dir="ltr">...</span>` so they behave as LTR islands and never distort surrounding Persian syntax.
+  - For bold or italic styling: ALWAYS use native Markdown syntax (`**متن**` or `*متن*`), NEVER `\textbf{...}`.
   - Dedicated multi-line code blocks (```python ... ```) or terminal snippets must remain separate LTR blocks.
   - Never begin a Persian sentence with an English token; always lead with a Persian word or subject marker (e.g. «کتابخانه `React` برای...» به جای «`React` برای...») to prevent the paragraph base direction from flipping.
 - **Mathematical Formulas (KaTeX / LaTeX)**:

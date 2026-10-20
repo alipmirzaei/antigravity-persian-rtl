@@ -137,6 +137,14 @@ const CSS_STYLES = `
     direction: ltr !important;
     text-align: left !important;
   }
+
+  /* 9. BiDi Token & Macro Shield (Strict LTR Isolation for LaTeX macros & backslash tokens) */
+  .ag-isolate {
+    display: inline-block !important;
+    direction: ltr !important;
+    unicode-bidi: isolate !important;
+    text-align: left !important;
+  }
 `;
 
 const INJECT_SCRIPT = `
@@ -190,6 +198,89 @@ const INJECT_SCRIPT = `
       }
     }
 
+    function isolateTextNode(node) {
+      if (!node || node.nodeType !== 3 || !node.nodeValue) return 0;
+      const val = node.nodeValue;
+      if (!val.includes('\\\\')) return 0;
+
+      const macroRegex = /\\\\([a-zA-Z]+)(?:\\{([^{}]*)\\}|\\[([^\\[\\]]*)\\])?/g;
+      const rtlCharsRegex = /[\\u0600-\\u06FF\\u0750-\\u077F\\u08A0-\\u08FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF]/;
+
+      let match;
+      let lastIndex = 0;
+      const fragments = [];
+
+      while ((match = macroRegex.exec(val)) !== null) {
+        const matchIndex = match.index;
+        const matchText = match[0];
+        const cmd = match[1];
+
+        if (matchIndex > lastIndex) {
+          fragments.push({ type: 'text', content: val.substring(lastIndex, matchIndex) });
+        }
+
+        if (rtlCharsRegex.test(matchText)) {
+          // If macro argument contains Persian text, isolate only the \\command in LTR
+          fragments.push({ type: 'isolate', content: '\\\\' + cmd });
+          const rest = matchText.substring(cmd.length + 1);
+          fragments.push({ type: 'text', content: rest });
+        } else {
+          // Pure ASCII/English macro: isolate the entire macro including its braces
+          fragments.push({ type: 'isolate', content: matchText });
+        }
+
+        lastIndex = matchIndex + matchText.length;
+      }
+
+      if (lastIndex < val.length) {
+        fragments.push({ type: 'text', content: val.substring(lastIndex) });
+      }
+
+      if (fragments.length <= 1 && fragments[0]?.type === 'text') return 0;
+
+      const parent = node.parentNode;
+      if (!parent) return 0;
+
+      const frag = document.createDocumentFragment();
+      for (const part of fragments) {
+        if (part.type === 'text') {
+          frag.appendChild(document.createTextNode(part.content));
+        } else {
+          const span = document.createElement('span');
+          span.className = 'ag-isolate';
+          span.setAttribute('dir', 'ltr');
+          span.textContent = part.content;
+          frag.appendChild(span);
+        }
+      }
+
+      parent.replaceChild(frag, node);
+      return 1;
+    }
+
+    function isolateMacros(root) {
+      if (!root) return;
+      if (root.closest && root.closest('.ag-isolate, .katex, .monaco-editor, .xterm, .terminal, code, pre, textarea, input, [contenteditable="true"]')) {
+        return;
+      }
+
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      const textNodes = [];
+      let n;
+      while ((n = walker.nextNode())) {
+        if (n.nodeValue && n.nodeValue.includes('\\\\')) {
+          const p = n.parentElement;
+          if (p && !p.closest('.ag-isolate, .katex, .monaco-editor, .xterm, .terminal, code, pre, textarea, input, [contenteditable="true"]')) {
+            textNodes.push(n);
+          }
+        }
+      }
+
+      for (const node of textNodes) {
+        isolateTextNode(node);
+      }
+    }
+
     function applyAutoDir(root) {
       if (!root || !root.querySelectorAll) return;
       if (root.matches && (root.isContentEditable || root.matches('p, li, h1, h2, h3, h4, [class*="message"], textarea, input'))) {
@@ -199,6 +290,7 @@ const INJECT_SCRIPT = `
       for (let i = 0; i < targets.length; i++) {
         updateElementDir(targets[i]);
       }
+      isolateMacros(root);
     }
 
     applyStyles();

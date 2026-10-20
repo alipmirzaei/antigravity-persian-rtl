@@ -35,7 +35,8 @@ Google Antigravity is a cutting-edge developer workspace built on Chromium and E
 - **Monaco Code Editor**: Explicitly protected with `direction: ltr !important`, `text-align: left !important`, and monospaced typography. Indentation, line numbers, diff views, and cursor placement remain 100% intact.
 - **Integrated Terminal (`xterm.js`)**: Isolated from bidirectional reordering; CLI tools render in native LTR.
 - **KaTeX Mathematical Isolation**: Inline formulas (`.katex`) are wrapped as atomic `inline-block` objects with strict `unicode-bidi: isolate !important`. Mathematical operators (`=`, `\le`, `*`, `()`, `[]`) never scramble inside RTL paragraphs. Display math (`$$...$$`) is cleanly centered.
-- **Inline Code Isolation**: Code snippets within sentences behave like `\lr{...}` in XeLaTeX (`unicode-bidi: isolate !important`).
+- **BiDi Macro & Backslash Token Shield (`.ag-isolate`)**: Raw LaTeX macros (e.g. `\lr{PRM}`, `\textbf{...}`), TeX symbols (`\alpha`, `\beta`), and backslash paths in RTL paragraphs are automatically isolated into atomic LTR spans (`unicode-bidi: isolate`). This permanently prevents the Unicode Bidirectional Algorithm (UBA) from inverting backslashes or scrambling braces and parentheses.
+- **Inline Code Isolation**: Code snippets within sentences are isolated (`unicode-bidi: isolate !important`) to guarantee clean LTR islands.
 
 ### 3. Dynamic Google Closure BiDi Ratio Heuristic
 Standard HTML5 `dir="auto"` inspects only the first character. Prompts starting with an English keyword (e.g. `Docker رو چطور نصب کنم؟`) fail and collapse to LTR.
