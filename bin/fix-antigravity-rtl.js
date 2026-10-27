@@ -350,21 +350,44 @@ function fetchJson(url) {
   });
 }
 
+let lastPort = null;
 const activeSockets = new Map();
 
+const HEALTH_CHECK_SCRIPT = `
+  (() => {
+    const s = document.getElementById("antigravity-persian-rtl");
+    if (!s || !window._antigravityPersianObserver) {
+      ${INJECT_SCRIPT}
+      return "healed";
+    }
+    return "healthy";
+  })()
+`;
+
 async function attachToPage(page, silent = false) {
-  if (activeSockets.has(page.id)) return true;
+  if (activeSockets.has(page.id)) {
+    const entry = activeSockets.get(page.id);
+    if (!entry || !entry.ws || entry.ws.readyState !== WebSocket.OPEN) {
+      activeSockets.delete(page.id);
+    } else {
+      // Actively verify DOM health and self-heal if styles/observer were wiped
+      entry.send('Runtime.evaluate', { expression: HEALTH_CHECK_SCRIPT, returnByValue: true });
+      return true;
+    }
+  }
 
   return new Promise((resolve) => {
     try {
       const ws = new WebSocket(page.webSocketDebuggerUrl);
-      activeSockets.set(page.id, ws);
-
       let msgId = 1;
+
       function send(method, params = {}) {
         if (ws.readyState !== WebSocket.OPEN) return;
         ws.send(JSON.stringify({ id: msgId++, method, params }));
       }
+
+      const entry = { ws, page, send };
+      activeSockets.set(page.id, entry);
 
       ws.onopen = () => {
         // Evaluate immediately in current DOM
@@ -372,6 +395,7 @@ async function attachToPage(page, silent = false) {
 
         // Ensure every new document/reload has the script compiled in before paint
         send('Page.enable');
+        send('DOM.enable');
         send('Page.addScriptToEvaluateOnNewDocument', { source: INJECT_SCRIPT });
 
         if (!silent) {
@@ -383,7 +407,13 @@ async function attachToPage(page, silent = false) {
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
-          if (msg.method === 'Page.frameNavigated' || msg.method === 'Page.loadEventFired') {
+          if (msg.result && msg.result.result && msg.result.result.value === 'healed') {
+            console.log(`[✓] Self-healed & restored styles on: "${page.title || 'Antigravity Window'}"`);
+          }
+          if (msg.method === 'Page.frameNavigated' || 
+              msg.method === 'Page.loadEventFired' ||
+              msg.method === 'Page.navigatedWithinDocument' ||
+              msg.method === 'DOM.documentUpdated') {
             send('Runtime.evaluate', { expression: INJECT_SCRIPT });
           }
         } catch (_) {}
@@ -406,15 +436,42 @@ async function attachToPage(page, silent = false) {
 }
 
 async function checkAndInject(silent = false) {
-  if (!fs.existsSync(PORT_FILE)) return 0;
+  if (!fs.existsSync(PORT_FILE)) {
+    if (activeSockets.size > 0) {
+      for (const [id, entry] of activeSockets.entries()) {
+        try { entry.ws.close(); } catch (_) {}
+      }
+      activeSockets.clear();
+    }
+    return 0;
+  }
 
   try {
     const lines = fs.readFileSync(PORT_FILE, 'utf8').trim().split('\n');
     const port = lines[0]?.trim();
     if (!port) return 0;
 
+    // Detect if Antigravity restarted on a new port
+    if (lastPort && lastPort !== port) {
+      if (!silent) console.log(`[i] Antigravity port changed (${lastPort} -> ${port}). Reconnecting...`);
+      for (const [id, entry] of activeSockets.entries()) {
+        try { entry.ws.close(); } catch (_) {}
+      }
+      activeSockets.clear();
+    }
+    lastPort = port;
+
     const pages = await fetchJson(`http://127.0.0.1:${port}/json/list`);
     if (!Array.isArray(pages)) return 0;
+
+    // Prune closed windows
+    const currentIds = new Set(pages.map(p => p.id));
+    for (const [id, entry] of activeSockets.entries()) {
+      if (!currentIds.has(id)) {
+        try { entry.ws.close(); } catch (_) {}
+        activeSockets.delete(id);
+      }
+    }
 
     let count = 0;
     for (const page of pages) {
