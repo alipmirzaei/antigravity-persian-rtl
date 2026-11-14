@@ -48,18 +48,45 @@ const CSS_STYLES = `
     font-display: swap;
   }
 
-  /* 2. Universal Persian & UI Typography (Line-height optimized for Persian) */
-  body, p, li, button, input, textarea, .whitespace-pre-wrap,
+  /* 2. Universal Persian & UI Typography */
+  body, p, li, button, input, textarea,
   [class*="message"], [class*="markdown"], [class*="prose"],
   [class*="conversation"], [class*="sidebar"], h1, h2, h3, h4 {
     font-family: "Vazirmatn", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   }
 
-  p, li, .whitespace-pre-wrap {
+  p, li {
     line-height: 1.75 !important;
   }
 
-  /* 3. SAFETY SHIELD: Monaco Code Editor Protection (Strictly LTR & Monospaced) */
+  /* 3. Automatic Bidirectional Paragraph Resolution (Zero-JS Native Chromium UBA Rule P2) */
+  p, li, [class*="message-content"], [class*="prose"],
+  [contenteditable="true"], textarea, input {
+    unicode-bidi: plaintext !important;
+    text-align: start !important;
+  }
+
+  /* 4. Explicit Right-to-Left and Left-to-Right Containers */
+  [dir="rtl"], .rtl {
+    direction: rtl !important;
+    text-align: right !important;
+  }
+  [dir="ltr"], .ltr {
+    direction: ltr !important;
+    text-align: left !important;
+  }
+
+  /* 5. Inline Code & Pre-formatted Snippet Isolation (Monospaced & Strictly LTR) */
+  code, pre, kbd, samp,
+  code.whitespace-pre-wrap, pre.whitespace-pre-wrap,
+  [class*="code-block"], [class*="codeblock"], [class*="code-"] {
+    font-family: "Ubuntu Sans Mono", "Ubuntu Mono", "Consolas", "Fira Code", monospace !important;
+    direction: ltr !important;
+    text-align: left !important;
+    unicode-bidi: isolate !important;
+  }
+
+  /* 6. SAFETY SHIELD: Monaco Code Editor Protection (Strictly LTR & Monospaced) */
   .monaco-editor, .monaco-editor *,
   .monaco-diff-editor, .monaco-diff-editor *,
   [class*="monaco-"] {
@@ -69,7 +96,7 @@ const CSS_STYLES = `
     font-family: "Ubuntu Sans Mono", "Ubuntu Mono", "Consolas", "Fira Code", monospace !important;
   }
 
-  /* 4. SAFETY SHIELD: Terminal Protection (xterm.js strictly LTR) */
+  /* 7. SAFETY SHIELD: Terminal Protection (xterm.js strictly LTR) */
   .xterm, .xterm *, .terminal, .terminal *,
   [class*="terminal"], [class*="xterm"] {
     direction: ltr !important;
@@ -78,7 +105,7 @@ const CSS_STYLES = `
     font-family: "Ubuntu Sans Mono", "Ubuntu Mono", "Consolas", "Fira Code", monospace !important;
   }
 
-  /* 5. SAFETY SHIELD: KaTeX Mathematical Protection (Strict LTR BiDi Isolation & Centered Display) */
+  /* 8. SAFETY SHIELD: KaTeX Mathematical Protection (Strict LTR BiDi Isolation & Centered Display) */
   .katex {
     direction: ltr !important;
     display: inline-block !important;
@@ -115,30 +142,7 @@ const CSS_STYLES = `
     text-align: center !important;
   }
 
-  /* 6. Inline Code & Pre-formatted Snippet Isolation */
-  code, pre, kbd, samp, [class*="code-block"] {
-    font-family: "Ubuntu Sans Mono", "Ubuntu Mono", "Consolas", "Fira Code", monospace !important;
-    direction: ltr !important;
-    text-align: left !important;
-    unicode-bidi: isolate !important;
-  }
-
-  /* 7. Automatic Bidirectional Paragraph Resolution (UBA Rule P2) */
-  p, li, .whitespace-pre-wrap, [class*="message-content"] {
-    unicode-bidi: plaintext !important;
-  }
-
-  /* 8. Explicit and Automatic Right-to-Left Containers */
-  [dir="rtl"], .rtl, [dir="auto"]:dir(rtl) {
-    direction: rtl !important;
-    text-align: right !important;
-  }
-  [dir="auto"]:dir(ltr) {
-    direction: ltr !important;
-    text-align: left !important;
-  }
-
-  /* 9. BiDi Token & Macro Shield (Strict LTR Isolation for LaTeX macros & backslash tokens) */
+  /* 9. BiDi Token & Macro Shield (Strict LTR Isolation for technical words) */
   .ag-isolate {
     display: inline-block !important;
     direction: ltr !important;
@@ -149,6 +153,23 @@ const CSS_STYLES = `
 
 const INJECT_SCRIPT = `
   (() => {
+    // 1. Clean up legacy JS observer & listeners if present
+    if (window._antigravityPersianObserver) {
+      window._antigravityPersianObserver.disconnect();
+      window._antigravityPersianObserver = null;
+    }
+    if (window._antigravityInputListener) {
+      document.removeEventListener('input', window._antigravityInputListener, true);
+      document.removeEventListener('keyup', window._antigravityInputListener, true);
+      window._antigravityInputListener = null;
+    }
+    document.querySelectorAll('[data-ag-rtl]').forEach(el => {
+      el.removeAttribute('dir');
+      el.removeAttribute('data-ag-rtl');
+      el.style.textAlign = '';
+    });
+
+    // 2. Pure CSS Engine Injection (Zero DOM Mutation, 100% React 18 & Lexical Safe)
     function applyStyles() {
       let s = document.getElementById("antigravity-persian-rtl");
       if (!s) {
@@ -160,94 +181,14 @@ const INJECT_SCRIPT = `
           document.documentElement.appendChild(s);
         }
       }
-      if (s) {
+      if (s && s.textContent !== ${JSON.stringify(CSS_STYLES)}) {
         s.textContent = ${JSON.stringify(CSS_STYLES)};
       }
     }
 
-    function isRtlString(str) {
-      if (!str) return false;
-      const rtlChars = str.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g);
-      if (!rtlChars) return false;
-      const ltrChars = str.match(/[a-zA-Z]/g);
-      if (!ltrChars) return true;
-      const rtlRatio = rtlChars.length / (rtlChars.length + ltrChars.length);
-      return rtlRatio >= 0.35 || rtlChars.length >= 3;
-    }
-
-    function updateElementDir(el) {
-      if (!el || !el.getAttribute) return;
-      if (el.closest && el.closest('.monaco-editor, .xterm, .terminal, .katex, pre, code')) return;
-      const text = el.value !== undefined ? el.value : el.textContent;
-      if (!text || !text.trim()) {
-        if (el.hasAttribute('data-ag-rtl')) {
-          el.removeAttribute('dir');
-          el.removeAttribute('data-ag-rtl');
-          el.style.textAlign = '';
-        }
-        return;
-      }
-      if (isRtlString(text)) {
-        if (el.getAttribute('dir') !== 'rtl') {
-          el.setAttribute('dir', 'rtl');
-          el.setAttribute('data-ag-rtl', '1');
-          el.style.textAlign = 'right';
-        }
-      } else {
-        if (el.hasAttribute('data-ag-rtl')) {
-          el.setAttribute('dir', 'ltr');
-          el.style.textAlign = 'left';
-        }
-      }
-    }
-
-    let rafId = null;
-    function scheduleAutoDir() {
-      if (rafId) return;
-      rafId = requestAnimationFrame(() => {
-        rafId = null;
-        applyAutoDir(document.body);
-      });
-    }
-
-    function applyAutoDir(root) {
-      if (!root || !root.querySelectorAll) return;
-      if (root.matches && (root.isContentEditable || root.matches('p, li, h1, h2, h3, h4, [class*="message"], textarea, input'))) {
-        updateElementDir(root);
-      }
-      const targets = root.querySelectorAll('p, li, h1, h2, h3, h4, [class*="message"], [contenteditable="true"], textarea, input');
-      for (let i = 0; i < targets.length; i++) {
-        updateElementDir(targets[i]);
-      }
-    }
-
     applyStyles();
-    if (document.body) applyAutoDir(document.body);
-
-    // Dynamic input & keyup listener for prompt field & textareas
-    if (!window._antigravityInputListener) {
-      window._antigravityInputListener = (e) => {
-        const target = e.target;
-        if (target && (target.isContentEditable || target.tagName === 'TEXTAREA' || target.tagName === 'INPUT')) {
-          updateElementDir(target);
-        }
-      };
-      document.addEventListener('input', window._antigravityInputListener, true);
-      document.addEventListener('keyup', window._antigravityInputListener, true);
-    }
-
-    if (!window._antigravityPersianObserver && document.body) {
-      window._antigravityPersianObserver = new MutationObserver(() => {
-        scheduleAutoDir();
-      });
-      window._antigravityPersianObserver.observe(document.body, { childList: true, subtree: true });
-    }
-
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", () => {
-        applyStyles();
-        if (document.body) applyAutoDir(document.body);
-      });
+      document.addEventListener("DOMContentLoaded", applyStyles);
     }
   })()
 `;
