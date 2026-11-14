@@ -186,9 +186,31 @@ const INJECT_SCRIPT = `
       }
     }
 
+    // 3. Mathematical Auto-Healing: Gracefully render KaTeX if math was mistakenly wrapped in code backticks
+    window.autoHealMathCodes = function(root = document.body) {
+      if (!root || typeof window.katex === 'undefined') return;
+      const codes = root.querySelectorAll('code');
+      for (let i = 0; i < codes.length; i++) {
+        const c = codes[i];
+        if (c.closest && c.closest('.monaco-editor, .xterm, .terminal, pre, [contenteditable="true"]')) continue;
+        const text = c.textContent.trim();
+        if (text.startsWith('$') && text.endsWith('$') && text.length > 2 && !text.slice(1, -1).includes('$')) {
+          const math = text.slice(1, -1);
+          try {
+            const html = window.katex.renderToString(math, { throwOnError: false, displayMode: false });
+            c.outerHTML = html;
+          } catch (_) {}
+        }
+      }
+    };
+
     applyStyles();
+    window.autoHealMathCodes();
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", applyStyles);
+      document.addEventListener("DOMContentLoaded", () => {
+        applyStyles();
+        window.autoHealMathCodes();
+      });
     }
   })()
 `;
@@ -222,6 +244,9 @@ const HEALTH_CHECK_SCRIPT = `
     if (!s) {
       ${INJECT_SCRIPT}
       return "healed";
+    }
+    if (typeof window.autoHealMathCodes === 'function') {
+      window.autoHealMathCodes();
     }
     return "healthy";
   })()
