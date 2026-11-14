@@ -176,8 +176,9 @@ const INJECT_SCRIPT = `
     }
 
     function updateElementDir(el) {
-      if (!el || (el.closest && el.closest('.monaco-editor, .xterm, .terminal, .katex'))) return;
-      const text = el.isContentEditable ? el.innerText : (el.value || el.textContent);
+      if (!el || !el.getAttribute) return;
+      if (el.closest && el.closest('.monaco-editor, .xterm, .terminal, .katex, pre, code')) return;
+      const text = el.value !== undefined ? el.value : el.textContent;
       if (!text || !text.trim()) {
         if (el.hasAttribute('data-ag-rtl')) {
           el.removeAttribute('dir');
@@ -187,9 +188,11 @@ const INJECT_SCRIPT = `
         return;
       }
       if (isRtlString(text)) {
-        el.setAttribute('dir', 'rtl');
-        el.setAttribute('data-ag-rtl', '1');
-        el.style.textAlign = 'right';
+        if (el.getAttribute('dir') !== 'rtl') {
+          el.setAttribute('dir', 'rtl');
+          el.setAttribute('data-ag-rtl', '1');
+          el.style.textAlign = 'right';
+        }
       } else {
         if (el.hasAttribute('data-ag-rtl')) {
           el.setAttribute('dir', 'ltr');
@@ -198,87 +201,13 @@ const INJECT_SCRIPT = `
       }
     }
 
-    function isolateTextNode(node) {
-      if (!node || node.nodeType !== 3 || !node.nodeValue) return 0;
-      const val = node.nodeValue;
-      if (!val.includes('\\\\')) return 0;
-
-      const macroRegex = /\\\\([a-zA-Z]+)(?:\\{([^{}]*)\\}|\\[([^\\[\\]]*)\\])?/g;
-      const rtlCharsRegex = /[\\u0600-\\u06FF\\u0750-\\u077F\\u08A0-\\u08FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF]/;
-
-      let match;
-      let lastIndex = 0;
-      const fragments = [];
-
-      while ((match = macroRegex.exec(val)) !== null) {
-        const matchIndex = match.index;
-        const matchText = match[0];
-        const cmd = match[1];
-
-        if (matchIndex > lastIndex) {
-          fragments.push({ type: 'text', content: val.substring(lastIndex, matchIndex) });
-        }
-
-        if (rtlCharsRegex.test(matchText)) {
-          // If macro argument contains Persian text, isolate only the \\command in LTR
-          fragments.push({ type: 'isolate', content: '\\\\' + cmd });
-          const rest = matchText.substring(cmd.length + 1);
-          fragments.push({ type: 'text', content: rest });
-        } else {
-          // Pure ASCII/English macro: isolate the entire macro including its braces
-          fragments.push({ type: 'isolate', content: matchText });
-        }
-
-        lastIndex = matchIndex + matchText.length;
-      }
-
-      if (lastIndex < val.length) {
-        fragments.push({ type: 'text', content: val.substring(lastIndex) });
-      }
-
-      if (fragments.length <= 1 && fragments[0]?.type === 'text') return 0;
-
-      const parent = node.parentNode;
-      if (!parent) return 0;
-
-      const frag = document.createDocumentFragment();
-      for (const part of fragments) {
-        if (part.type === 'text') {
-          frag.appendChild(document.createTextNode(part.content));
-        } else {
-          const span = document.createElement('span');
-          span.className = 'ag-isolate';
-          span.setAttribute('dir', 'ltr');
-          span.textContent = part.content;
-          frag.appendChild(span);
-        }
-      }
-
-      parent.replaceChild(frag, node);
-      return 1;
-    }
-
-    function isolateMacros(root) {
-      if (!root) return;
-      if (root.closest && root.closest('.ag-isolate, .katex, .monaco-editor, .xterm, .terminal, code, pre, textarea, input, [contenteditable="true"]')) {
-        return;
-      }
-
-      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-      const textNodes = [];
-      let n;
-      while ((n = walker.nextNode())) {
-        if (n.nodeValue && n.nodeValue.includes('\\\\')) {
-          const p = n.parentElement;
-          if (p && !p.closest('.ag-isolate, .katex, .monaco-editor, .xterm, .terminal, code, pre, textarea, input, [contenteditable="true"]')) {
-            textNodes.push(n);
-          }
-        }
-      }
-
-      for (const node of textNodes) {
-        isolateTextNode(node);
-      }
+    let rafId = null;
+    function scheduleAutoDir() {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        applyAutoDir(document.body);
+      });
     }
 
     function applyAutoDir(root) {
@@ -290,7 +219,6 @@ const INJECT_SCRIPT = `
       for (let i = 0; i < targets.length; i++) {
         updateElementDir(targets[i]);
       }
-      isolateMacros(root);
     }
 
     applyStyles();
@@ -309,14 +237,8 @@ const INJECT_SCRIPT = `
     }
 
     if (!window._antigravityPersianObserver && document.body) {
-      window._antigravityPersianObserver = new MutationObserver((mutations) => {
-        for (const m of mutations) {
-          for (const node of m.addedNodes) {
-            if (node.nodeType === 1) {
-              applyAutoDir(node);
-            }
-          }
-        }
+      window._antigravityPersianObserver = new MutationObserver(() => {
+        scheduleAutoDir();
       });
       window._antigravityPersianObserver.observe(document.body, { childList: true, subtree: true });
     }
@@ -356,7 +278,7 @@ const activeSockets = new Map();
 const HEALTH_CHECK_SCRIPT = `
   (() => {
     const s = document.getElementById("antigravity-persian-rtl");
-    if (!s || !window._antigravityPersianObserver) {
+    if (!s) {
       ${INJECT_SCRIPT}
       return "healed";
     }
@@ -370,7 +292,7 @@ async function attachToPage(page, silent = false) {
     if (!entry || !entry.ws || entry.ws.readyState !== WebSocket.OPEN) {
       activeSockets.delete(page.id);
     } else {
-      // Actively verify DOM health and self-heal if styles/observer were wiped
+      // Actively verify DOM health and self-heal if styles were wiped
       entry.send('Runtime.evaluate', { expression: HEALTH_CHECK_SCRIPT, returnByValue: true });
       return true;
     }
@@ -395,7 +317,6 @@ async function attachToPage(page, silent = false) {
 
         // Ensure every new document/reload has the script compiled in before paint
         send('Page.enable');
-        send('DOM.enable');
         send('Page.addScriptToEvaluateOnNewDocument', { source: INJECT_SCRIPT });
 
         if (!silent) {
@@ -412,8 +333,7 @@ async function attachToPage(page, silent = false) {
           }
           if (msg.method === 'Page.frameNavigated' || 
               msg.method === 'Page.loadEventFired' ||
-              msg.method === 'Page.navigatedWithinDocument' ||
-              msg.method === 'DOM.documentUpdated') {
+              msg.method === 'Page.navigatedWithinDocument') {
             send('Runtime.evaluate', { expression: INJECT_SCRIPT });
           }
         } catch (_) {}
@@ -475,7 +395,7 @@ async function checkAndInject(silent = false) {
 
     let count = 0;
     for (const page of pages) {
-      if (page.type === 'page' && page.webSocketDebuggerUrl) {
+      if (page.type === 'page' && page.webSocketDebuggerUrl && page.url && !page.url.startsWith('data:')) {
         const ok = await attachToPage(page, silent);
         if (ok) count++;
       }
