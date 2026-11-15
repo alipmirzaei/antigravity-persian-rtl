@@ -142,7 +142,26 @@ const CSS_STYLES = `
     text-align: center !important;
   }
 
-  /* 9. BiDi Token & Macro Shield (Strict LTR Isolation for technical words) */
+  /* 9. Markdown Tables Styling */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+    margin: 1em 0 !important;
+    unicode-bidi: plaintext !important;
+  }
+
+  th, td {
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    padding: 8px 12px !important;
+    text-align: start !important;
+  }
+
+  th {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    font-weight: 600 !important;
+  }
+
+  /* 10. BiDi Token & Macro Shield (Strict LTR Isolation for technical words) */
   .ag-isolate {
     display: inline-block !important;
     direction: ltr !important;
@@ -186,77 +205,9 @@ const INJECT_SCRIPT = `
       }
     }
 
-    // 3. KaTeX Macro Definitions & Mathematical Auto-Healing
-    function defineKatexMacros() {
-      if (typeof window.katex !== 'undefined' && typeof window.katex.__defineMacro === 'function') {
-        window.katex.__defineMacro("\\\\toprule", "\\\\hline");
-        window.katex.__defineMacro("\\\\midrule", "\\\\hline");
-        window.katex.__defineMacro("\\\\bottomrule", "\\\\hline");
-        window.katex.__defineMacro("\\\\cmidrule", "");
-        window.katex.__defineMacro("\\\\addlinespace", "");
-        window.katex.__defineMacro("\\\\lr", "\\\\text");
-        window.katex.__defineMacro("\\\\rl", "\\\\text");
-      }
-    }
-
-    window.autoHealMath = function(root = document.body) {
-      if (!root || typeof window.katex === 'undefined') return;
-      defineKatexMacros();
-
-      // A. Heal "Failed to render LaTeX" blocks (e.g. from undefined macros like \toprule or \lr)
-      const errorSpans = root.querySelectorAll('span');
-      for (let i = 0; i < errorSpans.length; i++) {
-        const span = errorSpans[i];
-        if (span.textContent && span.textContent.includes('Failed to render LaTeX')) {
-          const next = span.nextElementSibling;
-          const code = next ? next.querySelector('code') : null;
-          if (code) {
-            const raw = code.textContent.trim();
-            try {
-              const html = window.katex.renderToString(raw, { throwOnError: false, displayMode: true });
-              const wrapper = document.createElement('div');
-              wrapper.className = 'katex-display-healed my-2 text-center';
-              wrapper.innerHTML = html;
-              span.parentNode.insertBefore(wrapper, span);
-              span.remove();
-              next.remove();
-            } catch (_) {}
-          }
-        }
-      }
-
-      // B. Heal inline math accidentally wrapped in markdown code backticks
-      const codes = root.querySelectorAll('code');
-      for (let i = 0; i < codes.length; i++) {
-        const c = codes[i];
-        if (c.closest && c.closest('.monaco-editor, .xterm, .terminal, pre, [contenteditable="true"]')) continue;
-        const text = c.textContent.trim();
-        if (text.startsWith('$') && text.endsWith('$') && text.length > 2 && !text.slice(1, -1).includes('$')) {
-          const math = text.slice(1, -1);
-          try {
-            const html = window.katex.renderToString(math, { throwOnError: false, displayMode: false });
-            c.outerHTML = html;
-          } catch (_) {}
-        }
-      }
-
-      // C. Clean up raw \lr{...} and \rl{...} in text nodes
-      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-      let node;
-      while (node = walker.nextNode()) {
-        if (node.nodeValue && (node.nodeValue.includes('\\\\lr{') || node.nodeValue.includes('\\\\rl{'))) {
-          node.nodeValue = node.nodeValue.replace(/\\\\(?:lr|rl)\\{([^}]+)\\}/g, '$1');
-        }
-      }
-    };
-
     applyStyles();
-    window.autoHealMath();
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", () => {
-        applyStyles();
-        window.autoHealMath();
-      });
+      document.addEventListener("DOMContentLoaded", applyStyles);
     }
   })()
 `;
@@ -290,9 +241,6 @@ const HEALTH_CHECK_SCRIPT = `
     if (!s) {
       ${INJECT_SCRIPT}
       return "healed";
-    }
-    if (typeof window.autoHealMath === 'function') {
-      window.autoHealMath();
     }
     return "healthy";
   })()
