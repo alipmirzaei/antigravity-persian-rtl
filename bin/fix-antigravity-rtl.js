@@ -186,9 +186,46 @@ const INJECT_SCRIPT = `
       }
     }
 
-    // 3. Mathematical Auto-Healing: Gracefully render KaTeX if math was mistakenly wrapped in code backticks
-    window.autoHealMathCodes = function(root = document.body) {
+    // 3. KaTeX Macro Definitions & Mathematical Auto-Healing
+    function defineKatexMacros() {
+      if (typeof window.katex !== 'undefined' && typeof window.katex.__defineMacro === 'function') {
+        window.katex.__defineMacro("\\\\toprule", "\\\\hline");
+        window.katex.__defineMacro("\\\\midrule", "\\\\hline");
+        window.katex.__defineMacro("\\\\bottomrule", "\\\\hline");
+        window.katex.__defineMacro("\\\\cmidrule", "");
+        window.katex.__defineMacro("\\\\addlinespace", "");
+        window.katex.__defineMacro("\\\\lr", "\\\\text");
+        window.katex.__defineMacro("\\\\rl", "\\\\text");
+      }
+    }
+
+    window.autoHealMath = function(root = document.body) {
       if (!root || typeof window.katex === 'undefined') return;
+      defineKatexMacros();
+
+      // A. Heal "Failed to render LaTeX" blocks (e.g. from undefined macros like \toprule or \lr)
+      const errorSpans = root.querySelectorAll('span');
+      for (let i = 0; i < errorSpans.length; i++) {
+        const span = errorSpans[i];
+        if (span.textContent && span.textContent.includes('Failed to render LaTeX')) {
+          const next = span.nextElementSibling;
+          const code = next ? next.querySelector('code') : null;
+          if (code) {
+            const raw = code.textContent.trim();
+            try {
+              const html = window.katex.renderToString(raw, { throwOnError: false, displayMode: true });
+              const wrapper = document.createElement('div');
+              wrapper.className = 'katex-display-healed my-2 text-center';
+              wrapper.innerHTML = html;
+              span.parentNode.insertBefore(wrapper, span);
+              span.remove();
+              next.remove();
+            } catch (_) {}
+          }
+        }
+      }
+
+      // B. Heal inline math accidentally wrapped in markdown code backticks
       const codes = root.querySelectorAll('code');
       for (let i = 0; i < codes.length; i++) {
         const c = codes[i];
@@ -202,14 +239,23 @@ const INJECT_SCRIPT = `
           } catch (_) {}
         }
       }
+
+      // C. Clean up raw \lr{...} and \rl{...} in text nodes
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      let node;
+      while (node = walker.nextNode()) {
+        if (node.nodeValue && (node.nodeValue.includes('\\\\lr{') || node.nodeValue.includes('\\\\rl{'))) {
+          node.nodeValue = node.nodeValue.replace(/\\\\(?:lr|rl)\\{([^}]+)\\}/g, '$1');
+        }
+      }
     };
 
     applyStyles();
-    window.autoHealMathCodes();
+    window.autoHealMath();
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", () => {
         applyStyles();
-        window.autoHealMathCodes();
+        window.autoHealMath();
       });
     }
   })()
@@ -245,8 +291,8 @@ const HEALTH_CHECK_SCRIPT = `
       ${INJECT_SCRIPT}
       return "healed";
     }
-    if (typeof window.autoHealMathCodes === 'function') {
-      window.autoHealMathCodes();
+    if (typeof window.autoHealMath === 'function') {
+      window.autoHealMath();
     }
     return "healthy";
   })()
