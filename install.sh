@@ -112,6 +112,40 @@ if [ "$OS_NAME" = "Linux" ]; then
         echo "[✓] فایل ورود خودکار دسکتاپ فعال شد."
     fi
 
+    # D. Desktop Launcher & CLI Wrapper with Remote Debugging Enabled
+    echo "[*] پیکربندی راه‌انداز Antigravity با فلگ دیباگ برای فعال‌سازی اتوماتیک CDP..."
+    APPLICATIONS_DIR="$HOME/.local/share/applications"
+    mkdir -p "$APPLICATIONS_DIR"
+
+    # Terminal wrapper
+    cat << 'EOF' > "$LOCAL_BIN/antigravity"
+#!/usr/bin/env bash
+exec /snap/bin/antigravity --remote-debugging-port=0 "$@"
+EOF
+    chmod +x "$LOCAL_BIN/antigravity"
+
+    # Desktop launchers
+    for DESKTOP_FILE in "$APPLICATIONS_DIR/antigravity.desktop" "$APPLICATIONS_DIR/antigravity_antigravity.desktop"; do
+        cat << 'EOF' > "$DESKTOP_FILE"
+[Desktop Entry]
+X-SnapInstanceName=antigravity
+Name=Antigravity
+Comment=Google Antigravity — Build the new way
+X-SnapAppName=antigravity
+Exec=/snap/bin/antigravity --remote-debugging-port=0 %U
+Icon=/snap/antigravity/current/share/icons/hicolor/256x256/apps/antigravity.png
+Terminal=false
+Type=Application
+Categories=Development;
+StartupWMClass=Antigravity
+MimeType=x-scheme-handler/antigravity;
+EOF
+    done
+    if command -v update-desktop-database >/dev/null 2>&1; then
+        update-desktop-database "$APPLICATIONS_DIR" 2>/dev/null || true
+    fi
+    echo "[✓] راه‌انداز دسکتاپ و اسکریپت ترمینال Antigravity با موفقیت پیکربندی شدند."
+
 elif [ "$OS_NAME" = "Darwin" ]; then
     echo "[*] سیستم‌عامل تشخیص داده شده: macOS (Darwin)"
     MAC_FONTS_DIR="$HOME/Library/Fonts"

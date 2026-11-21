@@ -112,7 +112,6 @@ const CSS_STYLES = `
     unicode-bidi: isolate !important;
     text-align: left !important;
     font-family: KaTeX_Main, KaTeX_Math, "Times New Roman", serif !important;
-    white-space: nowrap !important;
   }
 
   .katex * {
@@ -126,6 +125,8 @@ const CSS_STYLES = `
     text-align: center !important;
     direction: ltr !important;
     unicode-bidi: isolate !important;
+    overflow-x: auto !important;
+    max-width: 100% !important;
   }
 
   .katex-display > .katex {
@@ -488,6 +489,18 @@ async function toggle() {
   }
 }
 
+function checkAntigravityProcess() {
+  try {
+    const cmd = process.platform === 'win32'
+      ? 'tasklist /FI "IMAGENAME eq antigravity.exe" /NH'
+      : 'pgrep -f "antigravity" || true';
+    const out = execSync(cmd).toString().trim();
+    return out.length > 0;
+  } catch (_) {
+    return false;
+  }
+}
+
 async function showStatus() {
   console.log('----------------------------------------------------');
   console.log('  Antigravity Persian RTL & Vazirmatn Status');
@@ -497,7 +510,14 @@ async function showStatus() {
 
   const portExists = fs.existsSync(PORT_FILE);
   if (!portExists) {
-    console.log('[!] Antigravity is NOT currently running.');
+    const isRunning = checkAntigravityProcess();
+    if (isRunning) {
+      console.log('[!] Antigravity is running, but remote debugging port (CDP) is NOT open.');
+      console.log('[!] It was started without the "--remote-debugging-port=0" flag.');
+      console.log('[i] Fix: Close and reopen Antigravity from your application menu or run "antigravity".');
+    } else {
+      console.log('[!] Antigravity is NOT currently running.');
+    }
   } else {
     const lines = fs.readFileSync(PORT_FILE, 'utf8').trim().split('\n');
     const port = lines[0]?.trim();
@@ -560,7 +580,14 @@ async function main() {
 
   // One-shot injection
   if (!fs.existsSync(PORT_FILE)) {
-    console.log('[!] Antigravity is not currently running.');
+    const isRunning = checkAntigravityProcess();
+    if (isRunning) {
+      console.log('[!] Antigravity is running, but remote debugging port (CDP) is not enabled.');
+      console.log('[!] Antigravity needs to be started with "--remote-debugging-port=0".');
+      console.log('[i] Relaunch Antigravity using "antigravity" or from the application menu to activate RTL.');
+    } else {
+      console.log('[!] Antigravity is not currently running.');
+    }
     process.exit(0);
   }
 
