@@ -124,9 +124,11 @@ exec /snap/bin/antigravity --remote-debugging-port=0 "$@"
 EOF
     chmod +x "$LOCAL_BIN/antigravity"
 
-    # Desktop launchers
-    for DESKTOP_FILE in "$APPLICATIONS_DIR/antigravity.desktop" "$APPLICATIONS_DIR/antigravity_antigravity.desktop"; do
-        cat << 'EOF' > "$DESKTOP_FILE"
+    # Clean up redundant antigravity.desktop to prevent duplicate icons
+    rm -f "$APPLICATIONS_DIR/antigravity.desktop"
+
+    # Snap-compatible Desktop launcher override
+    cat << 'EOF' > "$APPLICATIONS_DIR/antigravity_antigravity.desktop"
 [Desktop Entry]
 X-SnapInstanceName=antigravity
 Name=Antigravity
@@ -140,7 +142,11 @@ Categories=Development;
 StartupWMClass=Antigravity
 MimeType=x-scheme-handler/antigravity;
 EOF
-    done
+
+    if [ -f "$HOME/.config/mimeapps.list" ]; then
+        sed -i 's/antigravity\.desktop/antigravity_antigravity.desktop/g' "$HOME/.config/mimeapps.list" 2>/dev/null || true
+    fi
+
     if command -v update-desktop-database >/dev/null 2>&1; then
         update-desktop-database "$APPLICATIONS_DIR" 2>/dev/null || true
     fi
